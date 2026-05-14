@@ -1,7 +1,10 @@
 json_file: "arxiv-metadata-oai-snapshot.json"
 category_filter: "cs.AI"
-sqlite_db: "data/arxiv.db"
-faiss_index: "data/embeddings.faiss"
+db_host: "localhost"
+db_port: 5432
+db_name: "arxiv_rag"
+db_user: "postgres"
+db_password: "postgres"
 embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
 embedding_dim: 384
 batch_size: 1000

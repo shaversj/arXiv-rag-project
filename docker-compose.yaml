@@ -1,15 +1,36 @@
 services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_DB: arxiv_rag
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
       - ./arxiv-metadata-oai-snapshot.json:/app/arxiv-metadata-oai-snapshot.json:ro
     environment:
       - PYTHONPATH=/app
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=arxiv_rag
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
