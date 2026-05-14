@@ -1,0 +1,7 @@
+json_file: "arxiv-metadata-oai-snapshot.json"
+category_filter: "cs.AI"
+sqlite_db: "data/arxiv.db"
+chroma_db_dir: "data/chroma"
+embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+batch_size: 1000
+top_k: 10
