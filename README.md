@@ -151,6 +151,18 @@ The project expects `arxiv-metadata-oai-snapshot.json` in the project root. This
 - **IVF index** created on embeddings for fast lookups
 - **GIN index** on full-text for keyword search
 
+## Shutting Down
+
+```bash
+# Stop services, keep data volume (can restart without re-ingest)
+docker-compose down
+
+# Stop services AND delete data volume (requires re-ingest)
+docker-compose down -v
+```
+
+**Warning:** `docker-compose down -v` deletes all ingested papers and embeddings. Re-ingesting takes ~45-60 minutes.
+
 ## Troubleshooting
 
 ### PostgreSQL not starting
