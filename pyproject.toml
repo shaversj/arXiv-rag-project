@@ -4,12 +4,13 @@ version = "0.1.0"
 description = "arXiv RAG pipeline with chat interface"
 requires-python = ">=3.11"
 dependencies = [
-    "chromadb>=0.4.0",
+    "faiss-cpu>=1.7.0",
     "sentence-transformers>=2.0.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.20.0",
     "pyyaml>=6.0",
     "tqdm>=4.60",
+    "numpy>=1.21",
     "pytest>=7.0",
     "pytest-asyncio>=0.21.0",
 ]
