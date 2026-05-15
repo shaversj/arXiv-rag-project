@@ -2,6 +2,11 @@
 
 import asyncio
 import sys
+from pathlib import Path
+
+# Load .env before importing Langfuse
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 from arxiv_rag.agent.service import run_agent_turn
 from arxiv_rag.agent.tools import RetrievalTool
@@ -31,7 +36,7 @@ async def main(query: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python -m arxiv_rag.agent.cli "What are retrieval agents?"")
+        print('Usage: python -m arxiv_rag.agent.cli "What are retrieval agents?"')
         sys.exit(1)
 
     query = " ".join(sys.argv[1:])
