@@ -15,6 +15,21 @@ services:
       timeout: 5s
       retries: 5
 
+  langfuse:
+    image: langfuse/langfuse:latest
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/langfuse
+      SECRET_KEY: local-dev-secret-key-change-in-production
+      SALT: local-dev-salt-change-in-production
+      NEXT_PUBLIC_USERNAME: admin
+      NEXT_PUBLIC_PASSWORD: admin123
+      NEXT_PUBLIC_SIGN_UP_DISABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   test:
     build: .
     environment:
@@ -26,7 +41,7 @@ services:
       - DB_PASSWORD=postgres
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
-      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy
