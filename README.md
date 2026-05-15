@@ -22,6 +22,22 @@ uv run pytest tests/ -v
 ## Quick Start
 
 ```bash
+# Start PostgreSQL
+docker compose up -d postgres
+
+# Install dependencies
 uv sync
-uv run pytest tests/test_query_engine.py tests/test_agent_tools.py -q
+
+# Run tests (requires PostgreSQL)
+uv run pytest tests/test_repo_surface.py tests/test_agent_tools.py tests/test_tracing_langfuse.py tests/test_agent_service.py -v
+```
+
+## Docker
+
+```bash
+# Run tests in Docker (includes PostgreSQL)
+docker compose --profile test up test
+
+# Start PostgreSQL only
+docker compose up -d postgres
 ```

@@ -6,17 +6,17 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Copy project files
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen
 
-# Copy application
-COPY . .
+# Copy application source
+COPY src/ src/
+COPY tests/ tests/
 
-# Create data directory
-RUN mkdir -p data
+# Set Python path
+ENV PYTHONPATH=/app
 
-EXPOSE 8000
-
-CMD ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default command - run tests
+CMD ["uv", "run", "pytest", "tests/", "-v"]

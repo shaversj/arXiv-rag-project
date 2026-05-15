@@ -15,12 +15,8 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
+  test:
     build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./arxiv-metadata-oai-snapshot.json:/app/arxiv-metadata-oai-snapshot.json:ro
     environment:
       - PYTHONPATH=/app
       - DB_HOST=postgres
@@ -28,9 +24,14 @@ services:
       - DB_NAME=arxiv_rag
       - DB_USER=postgres
       - DB_PASSWORD=postgres
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
     depends_on:
       postgres:
         condition: service_healthy
+    profiles:
+      - test
 
 volumes:
   postgres_data:
