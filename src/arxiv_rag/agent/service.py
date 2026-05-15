@@ -52,18 +52,22 @@ class ClaudeAgentRunner:
 
 async def run_agent_turn(messages, retrieval_tool=None, claude_runner=None):
     tracer = build_tracer(input_payload={"messages": messages})
-    tool = retrieval_tool
-    if tool is None:
+    retrieval = retrieval_tool
+    if retrieval is None:
         from arxiv_rag.query_engine import QueryEngine
 
         query_engine = QueryEngine()
         query_engine.initialize()
-        tool = RetrievalTool(query_engine)
+        retrieval = RetrievalTool(query_engine)
 
     user_query = next(
-        message["content"] for message in reversed(messages) if message["role"] == "user"
+        (message["content"] for message in reversed(messages) if message["role"] == "user"),
+        None
     )
-    papers = tool.search(user_query, limit=5)
+    if user_query is None:
+        raise ValueError("No user message found in conversation")
+    limit = 5
+    papers = retrieval.search(user_query, limit=limit)
     citations_text, citations = render_citations(papers)
 
     runner = claude_runner or ClaudeAgentRunner()
@@ -71,7 +75,7 @@ async def run_agent_turn(messages, retrieval_tool=None, claude_runner=None):
 
     tracer.record_tool(
         name="search_arxiv_papers",
-        input_payload={"query": user_query, "limit": 5},
+        input_payload={"query": user_query, "limit": limit},
         output_payload={"papers": [paper.id for paper in papers]},
     )
     tracer.record_result(answer=answer)
