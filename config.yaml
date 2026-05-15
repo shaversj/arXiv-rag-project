@@ -9,3 +9,6 @@ embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
 embedding_dim: 384
 batch_size: 1000
 top_k: 10
+agent_max_turns: 3
+agent_search_limit: 5
+langfuse_enabled: true
