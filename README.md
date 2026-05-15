@@ -41,3 +41,19 @@ docker compose --profile test up test
 # Start PostgreSQL only
 docker compose up -d postgres
 ```
+
+## Run the Agent
+
+```bash
+# Start PostgreSQL first
+docker compose up -d postgres
+
+# Ask a question
+uv run python -m arxiv_rag.agent.cli "What are retrieval agents?"
+
+# With Langfuse tracing
+export LANGFUSE_PUBLIC_KEY="pk-..."
+export LANGFUSE_SECRET_KEY="sk-..."
+export LANGFUSE_HOST="https://cloud.langfuse.com"
+uv run python -m arxiv_rag.agent.cli "What are retrieval agents?"
+```
