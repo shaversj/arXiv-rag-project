@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, tool
 
 from arxiv_rag.agent.citations import render_citations
@@ -7,6 +9,10 @@ from arxiv_rag.agent.models import AgentTurnResult
 from arxiv_rag.agent.prompts import SYSTEM_PROMPT
 from arxiv_rag.agent.tools import RetrievalTool, normalize_papers_for_tool
 from arxiv_rag.tracing.langfuse import build_tracer
+
+
+def _get_model() -> str:
+    return os.getenv("MODEL_NAME", "claude-sonnet-4-7")
 
 
 def create_retrieval_server(retrieval_tool):
@@ -26,19 +32,28 @@ def create_retrieval_server(retrieval_tool):
     return create_sdk_mcp_server(name="arxiv", version="1.0.0", tools=[search_arxiv_papers])
 
 
-def build_agent_options(mcp_server):
-    return ClaudeAgentOptions(
-        system_prompt=SYSTEM_PROMPT,
-        max_turns=3,
-        mcp_servers={"arxiv": mcp_server},
-        allowed_tools=["mcp__arxiv__search_arxiv_papers"],
-    )
+def build_agent_options(mcp_server, model: str | None = None):
+    opts = {
+        "system_prompt": SYSTEM_PROMPT,
+        "max_turns": 3,
+        "model": model or _get_model(),
+        "mcp_servers": {"arxiv": mcp_server},
+        "allowed_tools": ["mcp__arxiv__search_arxiv_papers"],
+    }
+    base_url = os.getenv("ANTHROPIC_BASE_URL")
+    if base_url:
+        opts["env"] = {"ANTHROPIC_BASE_URL": base_url}
+    return ClaudeAgentOptions(**opts)
 
 
 class ClaudeAgentRunner:
+    def __init__(self, model: str | None = None):
+        self.model = model or _get_model()
+
     async def run(self, messages, papers):
         prompt = messages[-1]["content"]
-        async with ClaudeSDKClient(options=build_agent_options(mcp_server={})) as client:
+        opts = build_agent_options(mcp_server={}, model=self.model)
+        async with ClaudeSDKClient(options=opts) as client:
             await client.query(prompt)
             chunks = []
             async for event in client.receive_response():

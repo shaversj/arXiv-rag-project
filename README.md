@@ -45,13 +45,17 @@ docker compose up -d postgres
 ## Run the Agent
 
 ```bash
-# Start PostgreSQL first
+# Copy and configure environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# Start PostgreSQL
 docker compose up -d postgres
 
 # Ask a question
 uv run python -m arxiv_rag.agent.cli "What are retrieval agents?"
 
-# With Langfuse tracing
+# With Langfuse tracing (add to .env)
 export LANGFUSE_PUBLIC_KEY="pk-..."
 export LANGFUSE_SECRET_KEY="sk-..."
 export LANGFUSE_HOST="https://cloud.langfuse.com"
