@@ -53,13 +53,19 @@ class RetrievalTool:
 
     def search(self, query: str, limit: int = 5) -> list[RetrievedPaper]:
         rows = self.query_engine.search(query, limit=limit)
-        return [
-            RetrievedPaper(
-                id=str(row["id"]),
-                title=row["title"],
-                abstract=row.get("abstract") or "",
-                authors=_split_field(row.get("authors"), r"\s*,\s*|\s*;\s*|\s+and\s+"),
-                categories=_split_field(row.get("categories"), r"[\s,;]+"),
+        papers = []
+        for row in rows:
+            if "id" not in row or "title" not in row:
+                raise ValueError(
+                    f"QueryEngine.search returned a row missing required keys 'id' or 'title': {row!r}"
+                )
+            papers.append(
+                RetrievedPaper(
+                    id=str(row["id"]),
+                    title=row["title"],
+                    abstract=row.get("abstract") or "",
+                    authors=_split_field(row.get("authors"), r"\s*,\s*|\s*;\s*|\s+and\s+"),
+                    categories=_split_field(row.get("categories"), r"[\s,;]+"),
+                )
             )
-            for row in rows
-        ]
+        return papers
