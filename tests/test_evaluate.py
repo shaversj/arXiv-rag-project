@@ -130,6 +130,28 @@ def test_format_query_inspection_shows_hits_and_misses():
     assert "- 1304.3432: not found in top results" in output
 
 
+def test_format_query_inspection_includes_source_when_present():
+    output = format_query_inspection(
+        query="category learning and human categorization",
+        expected_ids=("2403.03835",),
+        results=[
+            {
+                "id": "2403.03835",
+                "title": "Cobweb",
+                "source": "both",
+            },
+            {
+                "id": "x",
+                "title": "Other paper",
+                "source": "keyword",
+            },
+        ],
+    )
+
+    assert "1. 2403.03835 | Cobweb | source=both" in output
+    assert "2. x | Other paper | source=keyword" in output
+
+
 def test_save_report_artifacts_writes_markdown_json_and_csv(tmp_path):
     report = {
         "query_count": 2,
