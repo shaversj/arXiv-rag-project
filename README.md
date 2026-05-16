@@ -39,6 +39,9 @@ docker compose --profile test up test
 
 # Start PostgreSQL only
 docker compose up -d postgres
+
+# Tail PostgreSQL query logs
+docker compose logs -f postgres
 ```
 
 ## Run the Agent

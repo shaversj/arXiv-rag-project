@@ -29,3 +29,12 @@ def test_agent_package_is_importable():
 
 def test_observability_module_is_importable():
     import_module("arxiv_rag.observability")
+
+
+def test_local_postgres_logs_all_statements():
+    repo_root = Path(__file__).resolve().parents[1]
+    compose_text = (repo_root / "docker-compose.yaml").read_text()
+
+    assert "log_statement=all" in compose_text
+    assert "log_duration=on" in compose_text
+    assert "log_line_prefix=%m [%p] %u@%d " in compose_text
