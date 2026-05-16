@@ -52,7 +52,7 @@ class StubQueryEngine:
                 "abstract": "Interesting paper",
                 "categories": "cs.AI cs.LG",
                 "score": 0.987,
-                "source": "hybrid",
+                "source": "both",
             }
         ]
 
