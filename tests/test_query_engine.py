@@ -197,6 +197,33 @@ def test_search_routes_hybrid_mode(monkeypatch, tmp_path):
     assert fuse_calls[0][2:] == (0.6, 0.4)
 
 
+def test_search_hybrid_uses_limit_when_above_candidate_pool(monkeypatch, tmp_path):
+    qe = _make_blocking_search_engine(
+        tmp_path,
+        monkeypatch,
+        retrieval_mode="hybrid",
+        hybrid_candidate_pool=3,
+    )
+    calls: list[tuple[str, str, int]] = []
+
+    monkeypatch.setattr(
+        qe,
+        "_search_semantic",
+        lambda query, limit: calls.append(("semantic", query, limit)) or [],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_search_keyword",
+        lambda query, limit: calls.append(("keyword", query, limit)) or [],
+        raising=False,
+    )
+
+    qe.search("wide hybrid query", limit=8)
+
+    assert calls == [("semantic", "wide hybrid query", 8), ("keyword", "wide hybrid query", 8)]
+
+
 def test_search_rejects_unsupported_retrieval_mode(monkeypatch, tmp_path):
     qe = _make_blocking_search_engine(tmp_path, monkeypatch, retrieval_mode="mystery")
 
@@ -342,3 +369,35 @@ def test_weight_driven_ranking_changes_order(tmp_path, monkeypatch):
 
     assert semantic_heavy[0]["id"] == "semantic_favorite"
     assert keyword_heavy[0]["id"] == "keyword_favorite"
+
+
+def test_search_keyword_uses_full_text_expression_with_authors(tmp_path, monkeypatch):
+    qe = _make_initialized_engine(tmp_path, monkeypatch)
+    captured: dict[str, object] = {}
+
+    class FakeCursor:
+        def execute(self, sql, params):
+            captured["sql"] = sql
+            captured["params"] = params
+
+        def fetchall(self):
+            return []
+
+        def close(self):
+            return None
+
+    class FakeConnection:
+        def cursor(self):
+            return FakeCursor()
+
+    class FakeStore:
+        def get_connection(self):
+            return FakeConnection()
+
+    qe.store = FakeStore()
+
+    qe._search_keyword("author query", 5)
+
+    sql = captured["sql"]
+    assert "p.title || ' ' || p.authors || ' ' || COALESCE(p.abstract, '')" in sql
+    assert captured["params"] == ("author query", "author query", 5)

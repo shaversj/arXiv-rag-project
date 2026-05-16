@@ -42,7 +42,7 @@ class QueryEngine:
             return self._search_keyword(query, limit)
 
         if retrieval_mode == "hybrid":
-            candidate_pool = self.config.get("hybrid_candidate_pool", limit)
+            candidate_pool = max(limit, self.config.get("hybrid_candidate_pool", limit))
             semantic_rows = self._search_semantic(query, candidate_pool)
             keyword_rows = self._search_keyword(query, candidate_pool)
             normalized_semantic = self._normalize_scores(semantic_rows)
@@ -108,11 +108,17 @@ class QueryEngine:
                 """
                 SELECT p.id, p.title, p.authors, p.abstract, p.categories,
                        ts_rank_cd(
-                           to_tsvector('english', p.title || ' ' || COALESCE(p.abstract, '')),
+                           to_tsvector(
+                               'english',
+                               p.title || ' ' || p.authors || ' ' || COALESCE(p.abstract, '')
+                           ),
                            plainto_tsquery('english', %s)
                        ) AS score
                 FROM papers p
-                WHERE to_tsvector('english', p.title || ' ' || COALESCE(p.abstract, ''))
+                WHERE to_tsvector(
+                          'english',
+                          p.title || ' ' || p.authors || ' ' || COALESCE(p.abstract, '')
+                      )
                       @@ plainto_tsquery('english', %s)
                 ORDER BY score DESC, p.id ASC
                 LIMIT %s
