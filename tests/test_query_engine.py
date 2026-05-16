@@ -40,8 +40,38 @@ def _make_initialized_engine(tmp_path: Path, monkeypatch, **config_overrides) ->
     return qe
 
 
-def test_search_requires_init():
-    qe = QueryEngine()
+def _make_blocking_search_engine(tmp_path: Path, monkeypatch, **config_overrides) -> QueryEngine:
+    qe = _make_initialized_engine(tmp_path, monkeypatch, **config_overrides)
+
+    class FakeCursor:
+        def execute(self, *args, **kwargs):
+            pytest.fail("legacy SQL path should not run")
+
+        def fetchall(self):
+            return []
+
+        def close(self):
+            return None
+
+    class FakeConnection:
+        def cursor(self):
+            return FakeCursor()
+
+    class FakeStore:
+        def get_connection(self):
+            return FakeConnection()
+
+    class FakeModel:
+        def encode(self, query):
+            return np.array([1.0, 0.0], dtype=np.float32)
+
+    qe.store = FakeStore()
+    qe.model = FakeModel()
+    return qe
+
+
+def test_search_requires_init(tmp_path):
+    qe = QueryEngine(config_path=str(_write_config(tmp_path)))
     with pytest.raises(RuntimeError):
         qe.search("test query")
 
@@ -68,33 +98,8 @@ def test_initialize_passes_embedding_dimension(monkeypatch, tmp_path):
 
 
 def test_search_routes_semantic_mode(monkeypatch, tmp_path):
-    qe = _make_initialized_engine(tmp_path, monkeypatch, retrieval_mode="semantic")
+    qe = _make_blocking_search_engine(tmp_path, monkeypatch, retrieval_mode="semantic")
     semantic_calls: list[tuple[str, int]] = []
-
-    class FakeCursor:
-        def execute(self, *args, **kwargs):
-            return None
-
-        def fetchall(self):
-            return []
-
-        def close(self):
-            return None
-
-    class FakeConnection:
-        def cursor(self):
-            return FakeCursor()
-
-    class FakeStore:
-        def get_connection(self):
-            return FakeConnection()
-
-    class FakeModel:
-        def encode(self, query):
-            return np.array([1.0, 0.0], dtype=np.float32)
-
-    qe.store = FakeStore()
-    qe.model = FakeModel()
 
     monkeypatch.setattr(
         qe,
@@ -117,33 +122,8 @@ def test_search_routes_semantic_mode(monkeypatch, tmp_path):
 
 
 def test_search_routes_keyword_mode(monkeypatch, tmp_path):
-    qe = _make_initialized_engine(tmp_path, monkeypatch, retrieval_mode="keyword")
+    qe = _make_blocking_search_engine(tmp_path, monkeypatch, retrieval_mode="keyword")
     keyword_calls: list[tuple[str, int]] = []
-
-    class FakeCursor:
-        def execute(self, *args, **kwargs):
-            return None
-
-        def fetchall(self):
-            return []
-
-        def close(self):
-            return None
-
-    class FakeConnection:
-        def cursor(self):
-            return FakeCursor()
-
-    class FakeStore:
-        def get_connection(self):
-            return FakeConnection()
-
-    class FakeModel:
-        def encode(self, query):
-            return np.array([1.0, 0.0], dtype=np.float32)
-
-    qe.store = FakeStore()
-    qe.model = FakeModel()
 
     monkeypatch.setattr(
         qe,
@@ -166,7 +146,7 @@ def test_search_routes_keyword_mode(monkeypatch, tmp_path):
 
 
 def test_search_routes_hybrid_mode(monkeypatch, tmp_path):
-    qe = _make_initialized_engine(
+    qe = _make_blocking_search_engine(
         tmp_path,
         monkeypatch,
         retrieval_mode="hybrid",
@@ -177,31 +157,6 @@ def test_search_routes_hybrid_mode(monkeypatch, tmp_path):
     calls: list[tuple[str, str, int]] = []
     normalize_calls: list[list[dict[str, object]]] = []
     fuse_calls: list[tuple[list[dict[str, object]], list[dict[str, object]], float, float]] = []
-
-    class FakeCursor:
-        def execute(self, *args, **kwargs):
-            return None
-
-        def fetchall(self):
-            return []
-
-        def close(self):
-            return None
-
-    class FakeConnection:
-        def cursor(self):
-            return FakeCursor()
-
-    class FakeStore:
-        def get_connection(self):
-            return FakeConnection()
-
-    class FakeModel:
-        def encode(self, query):
-            return np.array([1.0, 0.0], dtype=np.float32)
-
-    qe.store = FakeStore()
-    qe.model = FakeModel()
 
     monkeypatch.setattr(
         qe,
