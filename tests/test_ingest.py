@@ -49,9 +49,9 @@ def test_search_by_keyword():
 
     paper = {
         "id": "0704.0002",
-        "title": "Machine Learning Methods",
+        "title": "Machine Learning Methods UniqueKeywordAlpha",
         "authors": "Jane Smith",
-        "abstract": "This paper discusses neural networks and deep learning approaches",
+        "abstract": "This paper discusses neural networks and deep learning approaches with UniqueKeywordAlpha",
         "categories": "cs.AI",
         "submitter": "Test",
         "journal_ref": None,
@@ -61,7 +61,34 @@ def test_search_by_keyword():
     embedding = [0.1] * 384
     store.insert_paper(paper, embedding)
 
-    results = store.search_by_keyword("machine learning")
+    results = store.search_by_keyword("UniqueKeywordAlpha")
     assert len(results) >= 1
     assert any(r["id"] == "0704.0002" for r in results)
     store.close()
+
+
+def test_init_schema_uses_configured_embedding_dimension(monkeypatch):
+    executed_sql: list[str] = []
+
+    class FakeCursor:
+        def execute(self, sql, params=None):
+            executed_sql.append(sql)
+
+        def close(self):
+            return None
+
+    class FakeConnection:
+        closed = False
+
+        def cursor(self):
+            return FakeCursor()
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(PostgresStore, "_connect", lambda self: setattr(self, "conn", FakeConnection()))
+
+    store = PostgresStore(embedding_dim=1024)
+    store.init_schema()
+
+    assert any("embedding vector(1024)" in sql for sql in executed_sql)

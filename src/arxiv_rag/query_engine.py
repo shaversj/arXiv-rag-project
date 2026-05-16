@@ -20,7 +20,8 @@ class QueryEngine:
             port=self.config.get("db_port"),
             dbname=self.config.get("db_name"),
             user=self.config.get("db_user"),
-            password=self.config.get("db_password")
+            password=self.config.get("db_password"),
+            embedding_dim=self.config.get("embedding_dim", 384),
         )
         self.store.init_schema()
         self.model = SentenceTransformer(self.config["embedding_model"])

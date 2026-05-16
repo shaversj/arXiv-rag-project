@@ -5,12 +5,13 @@ import psycopg2
 
 class PostgresStore:
     def __init__(self, host=None, port=5432, dbname="arxiv_rag",
-                 user="postgres", password="postgres"):
+                 user="postgres", password="postgres", embedding_dim=384):
         self.host = host or os.getenv("DB_HOST", "localhost")
         self.port = port or int(os.getenv("DB_PORT", 5432))
         self.dbname = dbname or os.getenv("DB_NAME", "arxiv_rag")
         self.user = user or os.getenv("DB_USER", "postgres")
         self.password = password or os.getenv("DB_PASSWORD", "postgres")
+        self.embedding_dim = embedding_dim or int(os.getenv("EMBEDDING_DIM", 384))
         self.conn = None
         self._connect()
 
@@ -52,10 +53,10 @@ class PostgresStore:
         """)
 
         # Create paper_embeddings table with vector column
-        cursor.execute("""
+        cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS paper_embeddings (
                 paper_id TEXT PRIMARY KEY REFERENCES papers(id) ON DELETE CASCADE,
-                embedding vector(384),
+                embedding vector({self.embedding_dim}),
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -169,7 +170,8 @@ def ingest(config_path="config.yaml"):
         port=config.get("db_port"),
         dbname=config.get("db_name"),
         user=config.get("db_user"),
-        password=config.get("db_password")
+        password=config.get("db_password"),
+        embedding_dim=config.get("embedding_dim", 384),
     )
     store.init_schema()
 
