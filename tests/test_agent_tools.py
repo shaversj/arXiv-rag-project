@@ -51,6 +51,8 @@ class StubQueryEngine:
                 "authors": "Ileana Streinu and Louis Theran",
                 "abstract": "Interesting paper",
                 "categories": "cs.AI cs.LG",
+                "score": 0.987,
+                "source": "hybrid",
             }
         ]
 
@@ -69,3 +71,6 @@ def test_retrieval_tool_maps_query_engine_rows():
             categories=("cs.AI", "cs.LG"),
         )
     ]
+    assert isinstance(results[0], RetrievedPaper)
+    assert not hasattr(results[0], "score")
+    assert not hasattr(results[0], "source")
