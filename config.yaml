@@ -9,5 +9,9 @@ embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
 embedding_dim: 384
 batch_size: 1000
 top_k: 10
+retrieval_mode: "semantic"
+hybrid_semantic_weight: 0.7
+hybrid_keyword_weight: 0.3
+hybrid_candidate_pool: 25
 agent_max_turns: 3
 agent_search_limit: 5
