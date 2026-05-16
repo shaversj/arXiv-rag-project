@@ -15,16 +15,19 @@ _ABSTRACT_SNIPPET_LIMIT = 240
 
 
 def test_system_prompt_mentions_retrieval_and_citations():
-    assert "retrieval" in SYSTEM_PROMPT.lower()
+    assert "search_arxiv_papers" in SYSTEM_PROMPT
     assert "cite" in SYSTEM_PROMPT.lower()
 
 
-def test_build_agent_options_allows_only_search_tool():
+def test_build_agent_options_allows_agent_tools():
     from arxiv_rag.agent.service import build_agent_options
 
     options = build_agent_options(mcp_server="server")
 
-    assert options.allowed_tools == ["mcp__arxiv__search_arxiv_papers"]
+    assert options.allowed_tools == [
+        "mcp__arxiv__search_arxiv_papers",
+        "mcp__arxiv__analyze_arxiv_papers",
+    ]
 
 
 # === New tests for run_agent_turn ===
@@ -60,6 +63,7 @@ async def test_run_agent_turn_returns_answer_citations_and_papers():
 
     assert result.answer == "Grounded answer [1]."
     assert result.citations[0].id == "1111.1111"
+    assert result.metadata == ()
 
 
 class EmptyRetrievalTool:

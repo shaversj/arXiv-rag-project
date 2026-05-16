@@ -20,8 +20,14 @@ def test_claude_agent_sdk_is_the_packaging_surface():
     assert "claude-agent-sdk>=0.0.20" in dependencies
     assert not any("deepagents" in dependency for dependency in dependencies)
     assert not any("langgraph" in dependency for dependency in dependencies)
+    assert not any("langfuse" in dependency for dependency in dependencies)
 
 
 def test_agent_package_is_importable():
     import_module("arxiv_rag")
     assert True
+
+
+def test_tracing_package_removed():
+    with pytest.raises(ModuleNotFoundError):
+        import_module("arxiv_rag.tracing")

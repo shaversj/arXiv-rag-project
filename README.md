@@ -7,13 +7,12 @@ over arXiv papers.
 
 - `arxiv_rag.query_engine` for retrieval
 - `arxiv_rag.agent` for Claude-facing wrappers and tool wiring
-- `arxiv_rag.tracing` for Langfuse helpers
 
 ## Commands
 
 ```bash
 # Focused verification
-uv run pytest tests/test_query_engine.py tests/test_agent_tools.py tests/test_tracing_langfuse.py tests/test_agent_service.py -v
+uv run pytest tests/test_query_engine.py tests/test_agent_tools.py tests/test_agent_service.py -v
 
 # Full verification
 uv run pytest tests/ -v
@@ -29,7 +28,7 @@ docker compose up -d postgres
 uv sync
 
 # Run tests (requires PostgreSQL)
-uv run pytest tests/test_repo_surface.py tests/test_agent_tools.py tests/test_tracing_langfuse.py tests/test_agent_service.py -v
+uv run pytest tests/test_repo_surface.py tests/test_agent_tools.py tests/test_agent_service.py -v
 ```
 
 ## Docker
@@ -53,11 +52,5 @@ cp .env.example .env
 docker compose up -d postgres
 
 # Ask a question
-uv run python -m arxiv_rag.agent.cli "What are retrieval agents?"
-
-# With Langfuse tracing (add to .env)
-export LANGFUSE_PUBLIC_KEY="pk-..."
-export LANGFUSE_SECRET_KEY="sk-..."
-export LANGFUSE_HOST="https://cloud.langfuse.com"
 uv run python -m arxiv_rag.agent.cli "What are retrieval agents?"
 ```

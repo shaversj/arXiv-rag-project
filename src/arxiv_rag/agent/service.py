@@ -8,7 +8,6 @@ from arxiv_rag.agent.citations import render_citations
 from arxiv_rag.agent.models import AgentTurnResult
 from arxiv_rag.agent.prompts import SYSTEM_PROMPT
 from arxiv_rag.agent.tools import RetrievalTool, normalize_papers_for_tool
-from arxiv_rag.tracing.langfuse import build_tracer
 
 
 def _get_model() -> str:
@@ -104,7 +103,6 @@ class ClaudeAgentRunner:
 
 
 async def run_agent_turn(messages, retrieval_tool=None, claude_runner=None):
-    tracer = build_tracer(input_payload={"messages": messages})
     retrieval = retrieval_tool
     if retrieval is None:
         from arxiv_rag.query_engine import QueryEngine
@@ -128,17 +126,8 @@ async def run_agent_turn(messages, retrieval_tool=None, claude_runner=None):
     )
     answer = await runner.run(messages, papers)
 
-    tracer.record_tool(
-        name="search_arxiv_papers",
-        input_payload={"query": user_query, "limit": limit},
-        output_payload={"papers": [paper.id for paper in papers]},
-    )
-    tracer.record_result(answer=answer)
-    tracer.close()
-
     return AgentTurnResult(
         answer=answer,
         citations_text=citations_text,
         citations=citations,
-        metadata=(("trace_id", tracer.trace_id or ""),),
     )

@@ -11,4 +11,3 @@ batch_size: 1000
 top_k: 10
 agent_max_turns: 3
 agent_search_limit: 5
-langfuse_enabled: true

@@ -4,7 +4,6 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Load .env before importing Langfuse
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent.parent / ".env")
 
@@ -27,11 +26,6 @@ async def main(query: str) -> None:
     print(result.answer)
     print("\n--- Citations ---")
     print(result.citations_text)
-    if result.metadata:
-        trace_id = dict(result.metadata).get("trace_id", "")
-        if trace_id:
-            print(f"\n--- Langfuse Trace ---")
-            print(f"https://cloud.langfuse.com/project/.../traces/{trace_id}")
 
 
 if __name__ == "__main__":
