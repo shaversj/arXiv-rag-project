@@ -1,0 +1,46 @@
+[
+  {
+    "query": "category learning and human categorization",
+    "relevant_ids": ["2403.03835", "1304.3432"]
+  },
+  {
+    "query": "matrix factorization for embeddings",
+    "relevant_ids": ["2012.10853"]
+  },
+  {
+    "query": "category trees for classification",
+    "relevant_ids": ["1811.02617"]
+  },
+  {
+    "query": "category trees for clustering",
+    "relevant_ids": ["2103.12069"]
+  },
+  {
+    "query": "dynamic policy programming for Markov decision processes",
+    "relevant_ids": ["1004.2027"]
+  },
+  {
+    "query": "adaptive basis functions for reinforcement learning",
+    "relevant_ids": ["1005.0125"]
+  },
+  {
+    "query": "reinforcement learning in pomdps with probabilistic logic programs",
+    "relevant_ids": ["1011.5951"]
+  },
+  {
+    "query": "reinforcement learning and knowledge representation",
+    "relevant_ids": ["1012.1552"]
+  },
+  {
+    "query": "decentralized pomdp planning",
+    "relevant_ids": ["0707.2506", "2109.08755"]
+  },
+  {
+    "query": "hierarchical task network planning",
+    "relevant_ids": ["1106.4869", "1403.7426"]
+  },
+  {
+    "query": "probabilistic logic programs with weighted boolean formulas",
+    "relevant_ids": ["1304.6810"]
+  }
+]

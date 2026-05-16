@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 arxiv-rag-chat = "arxiv_rag.chat_cli:main"
+arxiv-rag-inspect-query = "arxiv_rag.evaluate:inspect_query_main"
 
 [build-system]
 requires = ["hatchling"]

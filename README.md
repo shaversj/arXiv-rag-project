@@ -57,3 +57,28 @@ docker compose up -d postgres
 # Ask a question
 uv run python -m arxiv_rag.agent.cli "What are retrieval agents?"
 ```
+
+## Evaluate Retrieval
+
+```bash
+# Run the retrieval benchmark against a labeled query set
+uv run python -m arxiv_rag.evaluate data/eval_queries.json
+
+# Save reusable benchmark artifacts for later comparison
+uv run python -m arxiv_rag.evaluate data/eval_queries.json --output-dir eval_results/
+
+# Inspect one query manually against expected paper IDs
+uv run arxiv-rag-inspect-query \
+  "category learning and human categorization" \
+  --expected-id 2403.03835 \
+  --expected-id 1304.3432
+```
+
+The evaluation dataset is a JSON array of objects with:
+- `query`: the search query to run
+- `relevant_ids`: a list of paper IDs that should count as relevant
+
+Saved benchmark runs include:
+- `summary.md`
+- `summary.json`
+- `per_query.csv`
