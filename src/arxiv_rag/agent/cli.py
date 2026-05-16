@@ -9,10 +9,13 @@ load_dotenv(Path(__file__).parent.parent.parent.parent / ".env")
 
 from arxiv_rag.agent.service import run_agent_turn
 from arxiv_rag.agent.tools import RetrievalTool
+from arxiv_rag.observability import init_observability
 from arxiv_rag.query_engine import QueryEngine
 
 
 async def main(query: str) -> None:
+    init_observability()
+
     query_engine = QueryEngine()
     query_engine.initialize()
     retrieval = RetrievalTool(query_engine)
