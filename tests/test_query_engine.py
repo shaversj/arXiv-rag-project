@@ -4,8 +4,8 @@ import pytest
 import numpy as np
 import yaml
 
-import query_engine
-from query_engine import QueryEngine
+from arxiv_rag import query_engine
+from arxiv_rag.query_engine import QueryEngine
 
 
 def _write_config(tmp_path: Path, **overrides) -> Path:
@@ -195,6 +195,32 @@ def test_search_routes_hybrid_mode(monkeypatch, tmp_path):
     assert len(normalize_calls) == 2
     assert len(fuse_calls) == 1
     assert fuse_calls[0][2:] == (0.6, 0.4)
+
+
+def test_search_rejects_unsupported_retrieval_mode(monkeypatch, tmp_path):
+    qe = _make_blocking_search_engine(tmp_path, monkeypatch, retrieval_mode="mystery")
+
+    with pytest.raises(ValueError, match="Unsupported retrieval_mode: mystery"):
+        qe.search("invalid mode")
+
+
+def test_normalize_scores_sets_identical_values_to_one(tmp_path, monkeypatch):
+    qe = _make_initialized_engine(tmp_path, monkeypatch)
+    rows = [
+        {"id": "1", "score": 5.0, "source": "semantic"},
+        {"id": "2", "score": 5.0, "source": "semantic"},
+    ]
+
+    normalized = qe._normalize_scores(rows)
+
+    assert normalized == [
+        {"id": "1", "score": 1.0, "source": "semantic"},
+        {"id": "2", "score": 1.0, "source": "semantic"},
+    ]
+    assert rows == [
+        {"id": "1", "score": 5.0, "source": "semantic"},
+        {"id": "2", "score": 5.0, "source": "semantic"},
+    ]
 
 
 def test_hybrid_deduplicates_by_paper_id(tmp_path, monkeypatch):
