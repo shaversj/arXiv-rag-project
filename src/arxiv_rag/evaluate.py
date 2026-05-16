@@ -158,7 +158,10 @@ def format_query_inspection(
         "Top results:",
     ]
     for index, row in enumerate(results, start=1):
-        lines.append(f"{index}. {row['id']} | {row['title']}")
+        result_line = f"{index}. {row['id']} | {row['title']}"
+        if row.get("source"):
+            result_line += f" | source={row['source']}"
+        lines.append(result_line)
 
     result_ids = [str(row["id"]) for row in results]
     lines.append("")

@@ -148,8 +148,12 @@ def test_format_query_inspection_includes_source_when_present():
         ],
     )
 
-    assert "1. 2403.03835 | Cobweb | source=both" in output
-    assert "2. x | Other paper | source=keyword" in output
+    top_results_lines = output.splitlines()[4:6]
+
+    assert top_results_lines == [
+        "1. 2403.03835 | Cobweb | source=both",
+        "2. x | Other paper | source=keyword",
+    ]
 
 
 def test_save_report_artifacts_writes_markdown_json_and_csv(tmp_path):
