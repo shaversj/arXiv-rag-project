@@ -155,8 +155,9 @@ def test_search_routes_hybrid_mode(monkeypatch, tmp_path):
         hybrid_keyword_weight=0.4,
     )
     calls: list[tuple[str, str, int]] = []
-    normalize_calls: list[list[dict[str, object]]] = []
-    fuse_calls: list[tuple[list[dict[str, object]], list[dict[str, object]], float, float]] = []
+    fuse_calls: list[
+        tuple[list[dict[str, object]], list[dict[str, object]], float, float, int]
+    ] = []
 
     monkeypatch.setattr(
         qe,
@@ -174,15 +175,9 @@ def test_search_routes_hybrid_mode(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         qe,
-        "_normalize_scores",
-        lambda rows: normalize_calls.append(rows) or rows,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        qe,
-        "_fuse_results",
-        lambda semantic_rows, keyword_rows, semantic_weight, keyword_weight: fuse_calls.append(
-            (semantic_rows, keyword_rows, semantic_weight, keyword_weight)
+        "_fuse_ranked_results",
+        lambda semantic_rows, keyword_rows, semantic_weight, keyword_weight, rank_constant: fuse_calls.append(
+            (semantic_rows, keyword_rows, semantic_weight, keyword_weight, rank_constant)
         )
         or [{"id": "a", "title": "Semantic", "score": semantic_weight, "source": "semantic"}],
         raising=False,
@@ -192,9 +187,8 @@ def test_search_routes_hybrid_mode(monkeypatch, tmp_path):
 
     assert results == [{"id": "a", "title": "Semantic", "score": 0.6, "source": "semantic"}]
     assert calls == [("semantic", "hybrid query", 7), ("keyword", "hybrid query", 7)]
-    assert len(normalize_calls) == 2
     assert len(fuse_calls) == 1
-    assert fuse_calls[0][2:] == (0.6, 0.4)
+    assert fuse_calls[0][2:] == (0.6, 0.4, 1)
 
 
 def test_search_hybrid_uses_limit_when_above_candidate_pool(monkeypatch, tmp_path):
@@ -231,26 +225,7 @@ def test_search_rejects_unsupported_retrieval_mode(monkeypatch, tmp_path):
         qe.search("invalid mode")
 
 
-def test_normalize_scores_sets_identical_values_to_one(tmp_path, monkeypatch):
-    qe = _make_initialized_engine(tmp_path, monkeypatch)
-    rows = [
-        {"id": "1", "score": 5.0, "source": "semantic"},
-        {"id": "2", "score": 5.0, "source": "semantic"},
-    ]
-
-    normalized = qe._normalize_scores(rows)
-
-    assert normalized == [
-        {"id": "1", "score": 1.0, "source": "semantic"},
-        {"id": "2", "score": 1.0, "source": "semantic"},
-    ]
-    assert rows == [
-        {"id": "1", "score": 5.0, "source": "semantic"},
-        {"id": "2", "score": 5.0, "source": "semantic"},
-    ]
-
-
-def test_hybrid_deduplicates_by_paper_id(tmp_path, monkeypatch):
+def test_rank_fusion_combines_duplicate_paper_by_id(tmp_path, monkeypatch):
     qe = _make_initialized_engine(tmp_path, monkeypatch)
     semantic_rows = [
         {
@@ -259,7 +234,7 @@ def test_hybrid_deduplicates_by_paper_id(tmp_path, monkeypatch):
             "authors": "A",
             "abstract": "S",
             "categories": "cs.AI",
-            "score": 1.0,
+            "score": 0.9,
             "source": "semantic",
         }
     ]
@@ -270,18 +245,18 @@ def test_hybrid_deduplicates_by_paper_id(tmp_path, monkeypatch):
             "authors": "A",
             "abstract": "S",
             "categories": "cs.AI",
-            "score": 0.4,
+            "score": 0.1,
             "source": "keyword",
         }
     ]
 
-    fused = qe._fuse_results(semantic_rows, keyword_rows, 0.7, 0.3)
+    fused = qe._fuse_ranked_results(semantic_rows, keyword_rows, 0.7, 0.3, 1)
 
     assert [row["id"] for row in fused] == ["42"]
     assert fused[0]["source"] == "both"
 
 
-def test_shared_paper_gets_fused_preference(tmp_path, monkeypatch):
+def test_rank_fusion_prefers_overlap_even_if_raw_scores_differ(tmp_path, monkeypatch):
     qe = _make_initialized_engine(tmp_path, monkeypatch)
     semantic_rows = [
         {
@@ -290,7 +265,7 @@ def test_shared_paper_gets_fused_preference(tmp_path, monkeypatch):
             "authors": "A",
             "abstract": "S",
             "categories": "cs.AI",
-            "score": 1.0,
+            "score": 0.01,
             "source": "semantic",
         },
         {
@@ -299,7 +274,7 @@ def test_shared_paper_gets_fused_preference(tmp_path, monkeypatch):
             "authors": "A",
             "abstract": "S",
             "categories": "cs.AI",
-            "score": 0.6,
+            "score": 0.99,
             "source": "semantic",
         },
     ]
@@ -310,65 +285,62 @@ def test_shared_paper_gets_fused_preference(tmp_path, monkeypatch):
             "authors": "A",
             "abstract": "S",
             "categories": "cs.AI",
-            "score": 1.0,
+            "score": 0.02,
             "source": "keyword",
         }
     ]
 
-    fused = qe._fuse_results(semantic_rows, keyword_rows, 0.7, 0.3)
+    fused = qe._fuse_ranked_results(semantic_rows, keyword_rows, 0.7, 0.3, 1)
 
     assert fused[0]["id"] == "shared"
-    assert fused[0]["score"] == pytest.approx(1.0)
 
 
-def test_weight_driven_ranking_changes_order(tmp_path, monkeypatch):
+def test_rank_fusion_ignores_raw_score_magnitude_and_uses_rank_order(tmp_path, monkeypatch):
     qe = _make_initialized_engine(tmp_path, monkeypatch)
     semantic_rows = [
         {
-            "id": "semantic_favorite",
-            "title": "Semantic Favorite",
+            "id": "semantic_top",
+            "title": "Semantic Top",
             "authors": "A",
             "abstract": "S",
             "categories": "cs.AI",
-            "score": 1.0,
+            "score": 0.0001,
             "source": "semantic",
         },
         {
-            "id": "keyword_favorite",
-            "title": "Keyword Favorite",
+            "id": "keyword_top",
+            "title": "Keyword Top",
             "authors": "B",
             "abstract": "K",
             "categories": "cs.LG",
-            "score": 0.2,
+            "score": 999.0,
             "source": "semantic",
         },
     ]
     keyword_rows = [
         {
-            "id": "semantic_favorite",
-            "title": "Semantic Favorite",
-            "authors": "A",
-            "abstract": "S",
-            "categories": "cs.AI",
-            "score": 0.1,
-            "source": "keyword",
-        },
-        {
-            "id": "keyword_favorite",
-            "title": "Keyword Favorite",
+            "id": "keyword_top",
+            "title": "Keyword Top",
             "authors": "B",
             "abstract": "K",
             "categories": "cs.LG",
-            "score": 1.0,
+            "score": 0.0001,
+            "source": "keyword",
+        },
+        {
+            "id": "semantic_top",
+            "title": "Semantic Top",
+            "authors": "A",
+            "abstract": "S",
+            "categories": "cs.AI",
+            "score": 999.0,
             "source": "keyword",
         },
     ]
 
-    semantic_heavy = qe._fuse_results(semantic_rows, keyword_rows, 0.8, 0.2)
-    keyword_heavy = qe._fuse_results(semantic_rows, keyword_rows, 0.2, 0.8)
+    fused = qe._fuse_ranked_results(semantic_rows, keyword_rows, 0.3, 0.7, 1)
 
-    assert semantic_heavy[0]["id"] == "semantic_favorite"
-    assert keyword_heavy[0]["id"] == "keyword_favorite"
+    assert fused[0]["id"] == "keyword_top"
 
 
 def test_search_keyword_uses_full_text_expression_with_authors(tmp_path, monkeypatch):
