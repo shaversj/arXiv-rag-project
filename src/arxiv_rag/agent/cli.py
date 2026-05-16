@@ -6,7 +6,7 @@ from pathlib import Path
 
 # Load .env before importing Langfuse
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
+load_dotenv(Path(__file__).parent.parent.parent.parent / ".env")
 
 from arxiv_rag.agent.service import run_agent_turn
 from arxiv_rag.agent.tools import RetrievalTool

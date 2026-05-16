@@ -14,15 +14,22 @@ class TraceHandle:
     tool_events: list[dict] = field(default_factory=list)
     answer: str | None = None
     _span: Any | None = None
+    _langfuse_client: Any | None = None
 
     def record_tool(self, *, name: str, input_payload: dict, output_payload: dict) -> None:
-        """Record a tool call to the trace."""
+        """Record a tool call to the trace as a nested span."""
         self.tool_events.append(
             {"name": name, "input": input_payload, "output": output_payload}
         )
-        if self.enabled and self._span:
+        if self.enabled and self._langfuse_client:
             try:
-                self._span.update(metadata={"tool_events": self.tool_events})
+                with self._langfuse_client.start_as_current_observation(
+                    name=name,
+                    as_type="span",
+                    input=input_payload,
+                    output=output_payload,
+                ):
+                    pass
             except Exception:
                 pass
 
@@ -34,15 +41,25 @@ class TraceHandle:
                 self._span.update(output=answer)
             except Exception:
                 pass
+        elif self.enabled and self._langfuse_client:
+            try:
+                self._langfuse_client.update_current_span(output=answer)
+            except Exception:
+                pass
 
     def close(self) -> None:
-        """Close the trace."""
+        """Close the trace and flush to Langfuse."""
         if self._span:
             try:
                 self._span.__exit__(None, None, None)
             except Exception:
                 pass
             self._span = None
+        if self.enabled and self._langfuse_client:
+            try:
+                self._langfuse_client.flush()
+            except Exception:
+                pass
 
     def get_trace_url(self) -> str | None:
         """Get the URL to view this trace in Langfuse UI."""
@@ -90,6 +107,7 @@ def build_tracer(*, input_payload: dict | None = None) -> TraceHandle:
             enabled=True,
             trace_id=getattr(root, "trace_id", None),
             _span=context_manager,
+            _langfuse_client=langfuse_client,
         )
 
     except Exception as e:

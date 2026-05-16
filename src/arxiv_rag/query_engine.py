@@ -71,6 +71,98 @@ class QueryEngine:
         cursor.close()
         return results[:limit]
 
+    def analyze(self, operation="count", group_by="author", time_range="all", query=None, limit=10):
+        """Analyze papers with aggregations.
+
+        Args:
+            operation: "count" (count papers)
+            group_by: "author" (group by author), "category" (group by category)
+            time_range: "7d", "30d", "90d", "all"
+            query: optional text search to filter papers
+            limit: max results to return
+        """
+        if not self.store:
+            raise RuntimeError("QueryEngine not initialized. Call initialize() first.")
+
+        conn = self.store.get_connection()
+        cursor = conn.cursor()
+
+        # Build time filter
+        time_filter = ""
+        if time_range != "all":
+            days = {"7d": 7, "30d": 30, "90d": 90}.get(time_range, 30)
+            time_filter = f" AND created_at > NOW() - INTERVAL '{days} days'"
+
+        # Build optional text search filter
+        text_filter = ""
+        if query:
+            text_filter = f" AND to_tsvector('english', title || ' ' || COALESCE(abstract, '')) @@ plainto_tsquery('english', %s)"
+            query_param = query
+        else:
+            query_param = None
+
+        if group_by == "author":
+            # Unnest the comma-separated authors and group
+            sql = f"""
+                SELECT unnest(string_to_array(authors, ',')) as author,
+                       COUNT(*) as paper_count
+                FROM papers
+                WHERE authors IS NOT NULL AND authors != '' {time_filter} {text_filter}
+                GROUP BY author
+                ORDER BY paper_count DESC
+                LIMIT %s
+            """
+            if query_param:
+                cursor.execute(sql, (query_param, limit))
+            else:
+                cursor.execute(sql, (limit,))
+            results = [
+                {"author": row[0].strip(), "paper_count": row[1]}
+                for row in cursor.fetchall()
+            ]
+        elif group_by == "category":
+            sql = f"""
+                SELECT unnest(string_to_array(categories, ' ')) as category,
+                       COUNT(*) as paper_count
+                FROM papers
+                WHERE categories IS NOT NULL AND categories != '' {time_filter} {text_filter}
+                GROUP BY category
+                ORDER BY paper_count DESC
+                LIMIT %s
+            """
+            if query_param:
+                cursor.execute(sql, (query_param, limit))
+            else:
+                cursor.execute(sql, (limit,))
+            results = [
+                {"category": row[0].strip(), "paper_count": row[1]}
+                for row in cursor.fetchall()
+            ]
+        elif group_by == "date":
+            sql = f"""
+                SELECT DATE(created_at) as date,
+                       COUNT(*) as paper_count
+                FROM papers
+                WHERE 1=1 {time_filter} {text_filter}
+                GROUP BY DATE(created_at)
+                ORDER BY date DESC
+                LIMIT %s
+            """
+            if query_param:
+                cursor.execute(sql, (query_param, limit))
+            else:
+                cursor.execute(sql, (limit,))
+            results = [
+                {"date": str(row[0]), "paper_count": row[1]}
+                for row in cursor.fetchall()
+            ]
+        else:
+            cursor.close()
+            raise ValueError(f"Unsupported group_by: {group_by}")
+
+        cursor.close()
+        return results
+
     def close(self):
         if self.store:
             self.store.close()

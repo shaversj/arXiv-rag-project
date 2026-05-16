@@ -50,6 +50,14 @@ def normalize_papers_for_tool(papers: list[RetrievedPaper]) -> list[dict]:
 class RetrievalTool:
     def __init__(self, query_engine: "QueryEngine"):
         self.query_engine = query_engine
+        self._mcp_server = None
+
+    @property
+    def mcp_server(self):
+        if self._mcp_server is None:
+            from arxiv_rag.agent.service import create_retrieval_server
+            self._mcp_server = create_retrieval_server(self)
+        return self._mcp_server
 
     def search(self, query: str, limit: int = 5) -> list[RetrievedPaper]:
         rows = self.query_engine.search(query, limit=limit)
@@ -69,3 +77,12 @@ class RetrievalTool:
                 )
             )
         return papers
+
+    def analyze(self, operation="count", group_by="author", time_range="all", query=None, limit=10):
+        return self.query_engine.analyze(
+            operation=operation,
+            group_by=group_by,
+            time_range=time_range,
+            query=query,
+            limit=limit,
+        )

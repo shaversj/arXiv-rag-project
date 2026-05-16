@@ -38,12 +38,13 @@ name = "arxiv-rag"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "claude-agent-sdk", specifier = ">=0.0.20" },
+    { name = "claude-agent-sdk" },
     { name = "langfuse" },
     { name = "numpy" },
     { name = "psycopg2-binary" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "sentence-transformers" },
     { name = "tqdm" },
@@ -57,6 +58,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.0" },
     { name = "pytest", specifier = ">=7.0" },
     { name = "pytest-asyncio", specifier = ">=0.21.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "sentence-transformers", specifier = ">=2.0.0" },
     { name = "tqdm", specifier = ">=4.60" },
