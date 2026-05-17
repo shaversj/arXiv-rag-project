@@ -33,7 +33,7 @@ class QueryEngine:
         if limit is None:
             limit = self.config["top_k"]
 
-        retrieval_mode = self.config.get("retrieval_mode", "semantic")
+        retrieval_mode = self.config.get("retrieval_mode", "hybrid")
 
         if retrieval_mode == "semantic":
             return self._search_semantic(query, limit)

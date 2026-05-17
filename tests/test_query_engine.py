@@ -244,6 +244,54 @@ def test_search_routes_hybrid_mode_with_custom_rank_constant(monkeypatch, tmp_pa
     assert fuse_calls[0][2:] == (0.7, 0.3, 4)
 
 
+def test_search_defaults_to_hybrid_when_retrieval_mode_missing(monkeypatch, tmp_path):
+    config_path = _write_config(tmp_path)
+    config = yaml.safe_load(config_path.read_text())
+    config.pop("retrieval_mode")
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+
+    qe = _make_blocking_search_engine(tmp_path, monkeypatch)
+    qe.config = config
+
+    calls: list[tuple[str, str, int]] = []
+    fuse_calls: list[
+        tuple[list[dict[str, object]], list[dict[str, object]], float, float, int]
+    ] = []
+
+    monkeypatch.setattr(
+        qe,
+        "_search_semantic",
+        lambda query, limit: calls.append(("semantic", query, limit))
+        or [{"id": "a", "title": "Semantic", "score": 1.0, "source": "semantic"}],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_search_keyword",
+        lambda query, limit: calls.append(("keyword", query, limit))
+        or [{"id": "b", "title": "Keyword", "score": 1.0, "source": "keyword"}],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_fuse_ranked_results",
+        lambda semantic_rows, keyword_rows, semantic_weight, keyword_weight, rank_constant: fuse_calls.append(
+            (semantic_rows, keyword_rows, semantic_weight, keyword_weight, rank_constant)
+        )
+        or [{"id": "a", "title": "Semantic", "score": 0.5, "source": "both"}],
+        raising=False,
+    )
+
+    results = qe.search("default hybrid query", limit=3)
+
+    assert results == [{"id": "a", "title": "Semantic", "score": 0.5, "source": "both"}]
+    assert calls == [
+        ("semantic", "default hybrid query", 25),
+        ("keyword", "default hybrid query", 25),
+    ]
+    assert fuse_calls[0][2:] == (0.7, 0.3, 1)
+
+
 def test_search_hybrid_uses_limit_when_above_candidate_pool(monkeypatch, tmp_path):
     qe = _make_blocking_search_engine(
         tmp_path,

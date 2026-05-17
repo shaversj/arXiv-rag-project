@@ -9,7 +9,7 @@ embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
 embedding_dim: 384
 batch_size: 1000
 top_k: 10
-retrieval_mode: "semantic"
+retrieval_mode: "hybrid"
 hybrid_semantic_weight: 0.7
 hybrid_keyword_weight: 0.3
 hybrid_candidate_pool: 25
