@@ -8,6 +8,11 @@ over arXiv papers.
 - `arxiv_rag.query_engine` for retrieval
 - `arxiv_rag.agent` for Claude-facing wrappers and tool wiring
 
+The default retrieval mode is hybrid:
+- semantic retrieval from pgvector embeddings
+- keyword retrieval from PostgreSQL full-text search
+- rank-based fusion of both result lists
+
 ## Commands
 
 ```bash
@@ -30,6 +35,37 @@ uv sync
 # Run tests (requires PostgreSQL)
 uv run pytest tests/test_repo_surface.py tests/test_agent_tools.py tests/test_agent_service.py -v
 ```
+
+## Ingest Data
+
+The ingester reads newline-delimited arXiv metadata from the file configured in
+`config.yaml`, filters by `category_filter`, embeds each paper with the configured
+sentence-transformer model, and writes both metadata and embeddings into PostgreSQL.
+
+Before running ingest:
+- make sure PostgreSQL is running
+- make sure `config.yaml` points `json_file` at your local arXiv metadata snapshot
+- update `category_filter` if you want a category other than `cs.AI`
+
+```bash
+# Start PostgreSQL
+docker compose up -d postgres
+
+# Install dependencies
+uv sync
+
+# Run ingest with the checked-in config
+uv run python -m arxiv_rag.ingest
+```
+
+Useful config fields in [`config.yaml`](/Users/wu36/Code/arXiv-rag-project/config.yaml:1):
+- `json_file`: path to the newline-delimited arXiv metadata file
+- `category_filter`: category token to keep during ingest
+- `batch_size`: number of papers to accumulate before flushing inserts
+- `embedding_model`: embedding model used during ingest and retrieval
+
+The current project notes expect roughly 45-60 minutes for a full CPU ingest of
+the `cs.AI` slice.
 
 ## Docker
 
@@ -73,6 +109,9 @@ uv run arxiv-rag-inspect-query \
   --expected-id 2403.03835 \
   --expected-id 1304.3432
 ```
+
+By default these commands use the checked-in `config.yaml`, which currently sets
+`retrieval_mode: "hybrid"`.
 
 The evaluation dataset is a JSON array of objects with:
 - `query`: the search query to run

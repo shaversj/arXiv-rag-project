@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-This is a RAG (Retrieval-Augmented Generation) pipeline for searching arXiv papers using semantic similarity. It uses PostgreSQL + pgvector for metadata storage, embeddings, and similarity search.
+This is a RAG (Retrieval-Augmented Generation) pipeline for searching arXiv papers with hybrid retrieval. It uses PostgreSQL + pgvector for metadata storage, embeddings, full-text search, and fused ranking.
 
 ## Tech Stack
 
-- **PostgreSQL 15 + pgvector** - metadata, embeddings, full-text search, similarity
+- **PostgreSQL 15 + pgvector** - metadata, embeddings, full-text search, hybrid retrieval
 - **Python 3.11+** - application code
 - **uv** - package manager
 - **Docker Compose** - services (PostgreSQL + app)
@@ -18,7 +18,7 @@ This is a RAG (Retrieval-Augmented Generation) pipeline for searching arXiv pape
 | File | Purpose |
 |------|--------|
 | `src/arxiv_rag/ingest.py` | PostgresStore class, ingest function |
-| `query_engine.py` | QueryEngine for pgvector similarity search |
+| `query_engine.py` | QueryEngine for semantic, keyword, and hybrid retrieval |
 | `app.py` | FastAPI server with /api/search endpoint |
 | `config.yaml` | Database connection, model settings |
 | `docker-compose.yaml` | PostgreSQL + app services |
@@ -38,6 +38,9 @@ This is a RAG (Retrieval-Augmented Generation) pipeline for searching arXiv pape
 ### Configuration
 - All config via `config.yaml` (no hardcoded values)
 - Database credentials via env vars: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+- Default retrieval mode is `hybrid`
+- Hybrid retrieval combines pgvector semantic search and PostgreSQL full-text search with rank-based fusion
+- Ingest reads newline-delimited arXiv metadata from `json_file` and filters rows by `category_filter`
 
 ### Docker
 - `docker-compose up -d` starts PostgreSQL + app
@@ -66,6 +69,13 @@ docker-compose run --rm app pytest tests/ -v
 docker-compose build app
 ```
 
+## Ingest Notes
+
+- Local ingest entry point: `uv run python3 -m arxiv_rag.ingest`
+- The ingester expects `config.yaml` to point `json_file` at an arXiv metadata snapshot on disk
+- Only papers whose category list contains `category_filter` are embedded and stored
+- Metadata is written to `papers`, embeddings to `paper_embeddings`
+
 ## Project State
 
 - Ingest creates ~176k paper records from cs.AI category
@@ -82,5 +92,6 @@ If you add a new Python package:
 ## Architecture Notes
 
 - No separate embedding store - embeddings stored in PostgreSQL via pgvector
-- FAISS not used - pgvector handles similarity search efficiently
+- FAISS not used - pgvector handles semantic similarity search efficiently
+- Default search behavior is hybrid fusion over semantic and keyword result lists
 - SQLite not used - PostgreSQL for data integrity and concurrent access
