@@ -175,6 +175,20 @@ def test_search_routes_hybrid_mode(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         qe,
+        "_normalize_scores",
+        lambda rows: pytest.fail("_normalize_scores should not run in rank-fusion hybrid mode"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_fuse_results",
+        lambda semantic_rows, keyword_rows, semantic_weight, keyword_weight: pytest.fail(
+            "_fuse_results should not run in rank-fusion hybrid mode"
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
         "_fuse_ranked_results",
         lambda semantic_rows, keyword_rows, semantic_weight, keyword_weight, rank_constant: fuse_calls.append(
             (semantic_rows, keyword_rows, semantic_weight, keyword_weight, rank_constant)
@@ -254,20 +268,12 @@ def test_rank_fusion_combines_duplicate_paper_by_id(tmp_path, monkeypatch):
 
     assert [row["id"] for row in fused] == ["42"]
     assert fused[0]["source"] == "both"
+    assert fused[0]["score"] == pytest.approx(0.5)
 
 
 def test_rank_fusion_prefers_overlap_even_if_raw_scores_differ(tmp_path, monkeypatch):
     qe = _make_initialized_engine(tmp_path, monkeypatch)
     semantic_rows = [
-        {
-            "id": "shared",
-            "title": "Shared",
-            "authors": "A",
-            "abstract": "S",
-            "categories": "cs.AI",
-            "score": 0.01,
-            "source": "semantic",
-        },
         {
             "id": "semantic_only",
             "title": "Semantic Only",
@@ -275,6 +281,15 @@ def test_rank_fusion_prefers_overlap_even_if_raw_scores_differ(tmp_path, monkeyp
             "abstract": "S",
             "categories": "cs.AI",
             "score": 0.99,
+            "source": "semantic",
+        },
+        {
+            "id": "shared",
+            "title": "Shared",
+            "authors": "A",
+            "abstract": "S",
+            "categories": "cs.AI",
+            "score": 0.01,
             "source": "semantic",
         },
     ]
@@ -293,6 +308,7 @@ def test_rank_fusion_prefers_overlap_even_if_raw_scores_differ(tmp_path, monkeyp
     fused = qe._fuse_ranked_results(semantic_rows, keyword_rows, 0.7, 0.3, 1)
 
     assert fused[0]["id"] == "shared"
+    assert fused[0]["score"] == pytest.approx((0.7 / 3) + (0.3 / 2))
 
 
 def test_rank_fusion_ignores_raw_score_magnitude_and_uses_rank_order(tmp_path, monkeypatch):
@@ -340,7 +356,7 @@ def test_rank_fusion_ignores_raw_score_magnitude_and_uses_rank_order(tmp_path, m
 
     fused = qe._fuse_ranked_results(semantic_rows, keyword_rows, 0.3, 0.7, 1)
 
-    assert fused[0]["id"] == "keyword_top"
+    assert [row["id"] for row in fused] == ["keyword_top", "semantic_top"]
 
 
 def test_search_keyword_uses_full_text_expression_with_authors(tmp_path, monkeypatch):
