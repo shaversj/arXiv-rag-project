@@ -62,6 +62,7 @@ async def test_analyze_tool_defaults_to_full_corpus(monkeypatch):
 # === Tests for run_agent_turn ===
 
 from arxiv_rag.agent.service import run_agent_turn
+from arxiv_rag.agent.models import RetrievedPaper
 
 
 class StubRetrievalTool:
@@ -109,6 +110,94 @@ async def test_run_agent_turn_handles_empty_retrieval():
 
     assert result.citations == ()
     assert result.citations_text == ""
+
+
+class TrackingRetrievalTool:
+    def __init__(self, papers: list[RetrievedPaper]):
+        self._papers = papers
+        self._turn_papers: list[RetrievedPaper] = []
+
+    def reset_turn_tracking(self):
+        self._turn_papers = []
+
+    def get_turn_retrieved_papers(self) -> tuple[RetrievedPaper, ...]:
+        return tuple(self._turn_papers)
+
+    def search(self, query: str, limit: int = 5):
+        selected = self._papers[:limit]
+        self._turn_papers.extend(selected)
+        return selected
+
+
+@pytest.mark.asyncio
+async def test_run_agent_turn_accepts_answers_citing_retrieved_papers_only():
+    paper = RetrievedPaper(id="2403.03835", title="Category Learning")
+    retrieval = TrackingRetrievalTool([paper])
+
+    class GroundedClaudeRunner:
+        async def run(self, messages):
+            retrieval.search("category learning", limit=5)
+            return "The retrieved paper frames the task as human-like categorization [2403.03835]."
+
+    result = await run_agent_turn(
+        [{"role": "user", "content": "How does category learning work?"}],
+        retrieval_tool=retrieval,
+        claude_runner=GroundedClaudeRunner(),
+    )
+
+    assert result.answer == "The retrieved paper frames the task as human-like categorization [2403.03835]."
+    assert result.citations == (paper,)
+    assert result.citations_text == "[1] Category Learning (2403.03835)"
+
+
+@pytest.mark.asyncio
+async def test_run_agent_turn_blocks_uncited_answers_after_retrieval():
+    paper = RetrievedPaper(id="2403.03835", title="Category Learning")
+    retrieval = TrackingRetrievalTool([paper])
+
+    class UngroundedClaudeRunner:
+        async def run(self, messages):
+            retrieval.search("category learning", limit=5)
+            return "Category learning usually works by building latent prototypes."
+
+    result = await run_agent_turn(
+        [{"role": "user", "content": "How does category learning work?"}],
+        retrieval_tool=retrieval,
+        claude_runner=UngroundedClaudeRunner(),
+    )
+
+    assert result.answer == (
+        "I couldn't answer that from the retrieved papers alone. "
+        "Please try rephrasing your question or inspect the retrieved papers directly."
+    )
+    assert result.citations == ()
+    assert result.citations_text == ""
+    assert ("grounding_status", "missing_citations") in result.metadata
+
+
+@pytest.mark.asyncio
+async def test_run_agent_turn_blocks_citations_to_unretrieved_papers():
+    paper = RetrievedPaper(id="2403.03835", title="Category Learning")
+    retrieval = TrackingRetrievalTool([paper])
+
+    class InvalidCitationClaudeRunner:
+        async def run(self, messages):
+            retrieval.search("category learning", limit=5)
+            return "The answer is established by prior work [1304.3432]."
+
+    result = await run_agent_turn(
+        [{"role": "user", "content": "How does category learning work?"}],
+        retrieval_tool=retrieval,
+        claude_runner=InvalidCitationClaudeRunner(),
+    )
+
+    assert result.answer == (
+        "I couldn't answer that from the retrieved papers alone. "
+        "Please try rephrasing your question or inspect the retrieved papers directly."
+    )
+    assert result.citations == ()
+    assert result.citations_text == ""
+    assert ("grounding_status", "unsupported_citations") in result.metadata
 
 
 @pytest.mark.asyncio

@@ -51,6 +51,7 @@ class RetrievalTool:
     def __init__(self, query_engine: "QueryEngine"):
         self.query_engine = query_engine
         self._mcp_server = None
+        self._turn_papers: list[RetrievedPaper] = []
 
     @property
     def mcp_server(self):
@@ -76,7 +77,14 @@ class RetrievalTool:
                     categories=_split_field(row.get("categories"), r"[\s,;]+"),
                 )
             )
+        self._turn_papers.extend(papers)
         return papers
+
+    def reset_turn_tracking(self) -> None:
+        self._turn_papers = []
+
+    def get_turn_retrieved_papers(self) -> tuple[RetrievedPaper, ...]:
+        return tuple(self._turn_papers)
 
     def analyze(self, operation="count", group_by="author", time_range="all", query=None, limit=10):
         return self.query_engine.analyze(

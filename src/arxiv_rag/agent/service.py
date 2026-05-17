@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, tool
 
+from arxiv_rag.agent.citations import render_citations
 from arxiv_rag.agent.models import AgentTurnResult
 from arxiv_rag.agent.prompts import SYSTEM_PROMPT
 from arxiv_rag.agent.tools import RetrievalTool, normalize_papers_for_tool
@@ -19,6 +21,14 @@ ALLOWED_TOOLS = [
     "mcp__arxiv__search_arxiv_papers",
     "mcp__arxiv__analyze_arxiv_papers",
 ]
+UNSUPPORTED_CORPUS_ANSWER = (
+    "I couldn't answer that from the retrieved papers alone. "
+    "Please try rephrasing your question or inspect the retrieved papers directly."
+)
+ARXIV_ID_PATTERN = re.compile(
+    r"\b(?:\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z-]+)?/\d{7}(?:v\d+)?)\b",
+    re.IGNORECASE,
+)
 
 
 def _get_model() -> str:
@@ -44,6 +54,76 @@ def _build_default_retrieval_tool() -> RetrievalTool:
     query_engine = QueryEngine()
     query_engine.initialize()
     return RetrievalTool(query_engine)
+
+
+def _reset_turn_tracking(retrieval_tool: object) -> None:
+    reset = getattr(retrieval_tool, "reset_turn_tracking", None)
+    if callable(reset):
+        reset()
+
+
+def _get_turn_retrieved_papers(retrieval_tool: object) -> tuple:
+    getter = getattr(retrieval_tool, "get_turn_retrieved_papers", None)
+    if callable(getter):
+        return tuple(getter())
+    return ()
+
+
+def _extract_cited_ids(answer: str) -> tuple[str, ...]:
+    seen: set[str] = set()
+    cited_ids: list[str] = []
+    for match in ARXIV_ID_PATTERN.finditer(answer):
+        paper_id = match.group(0)
+        if paper_id not in seen:
+            cited_ids.append(paper_id)
+            seen.add(paper_id)
+    return tuple(cited_ids)
+
+
+def _unsupported_answer_result(reason: str, extra_metadata: tuple[tuple[str, Any], ...] = ()) -> AgentTurnResult:
+    return AgentTurnResult(
+        answer=UNSUPPORTED_CORPUS_ANSWER,
+        citations_text="",
+        citations=(),
+        metadata=(("grounding_status", reason),) + extra_metadata,
+    )
+
+
+def _ground_answer(answer: str, retrieval_tool: object) -> AgentTurnResult:
+    retrieved_papers = _get_turn_retrieved_papers(retrieval_tool)
+    if not retrieved_papers:
+        return AgentTurnResult(
+            answer=answer,
+            citations_text="",
+            citations=(),
+        )
+
+    papers_by_id = {}
+    for paper in retrieved_papers:
+        papers_by_id.setdefault(paper.id, paper)
+
+    cited_ids = _extract_cited_ids(answer)
+    if not cited_ids:
+        return _unsupported_answer_result(
+            "missing_citations",
+            (("retrieved_paper_count", len(papers_by_id)),),
+        )
+
+    unsupported_ids = tuple(paper_id for paper_id in cited_ids if paper_id not in papers_by_id)
+    if unsupported_ids:
+        return _unsupported_answer_result(
+            "unsupported_citations",
+            (("unsupported_citation_ids", unsupported_ids),),
+        )
+
+    cited_papers = [papers_by_id[paper_id] for paper_id in cited_ids]
+    citations_text, citations = render_citations(cited_papers)
+    return AgentTurnResult(
+        answer=answer,
+        citations_text=citations_text,
+        citations=citations,
+        metadata=(("grounding_status", "grounded"),),
+    )
 
 
 def create_retrieval_server(retrieval_tool: RetrievalTool):
@@ -124,13 +204,9 @@ class ClaudeAgentRunner:
 
 async def run_agent_turn(messages, retrieval_tool=None, claude_runner=None):
     retrieval = retrieval_tool or _build_default_retrieval_tool()
+    _reset_turn_tracking(retrieval)
     runner = claude_runner or ClaudeAgentRunner(
         mcp_server=create_retrieval_server(retrieval)
     )
     answer = await runner.run(messages)
-
-    return AgentTurnResult(
-        answer=answer,
-        citations_text="",
-        citations=(),
-    )
+    return _ground_answer(answer, retrieval)
