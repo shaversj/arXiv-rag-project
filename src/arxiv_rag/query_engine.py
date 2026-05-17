@@ -45,13 +45,12 @@ class QueryEngine:
             candidate_pool = max(limit, self.config.get("hybrid_candidate_pool", limit))
             semantic_rows = self._search_semantic(query, candidate_pool)
             keyword_rows = self._search_keyword(query, candidate_pool)
-            normalized_semantic = self._normalize_scores(semantic_rows)
-            normalized_keyword = self._normalize_scores(keyword_rows)
-            fused = self._fuse_results(
-                normalized_semantic,
-                normalized_keyword,
+            fused = self._fuse_ranked_results(
+                semantic_rows,
+                keyword_rows,
                 self.config.get("hybrid_semantic_weight", 0.7),
                 self.config.get("hybrid_keyword_weight", 0.3),
+                self.config.get("hybrid_rank_constant", 1),
             )
             return fused[:limit]
 
@@ -141,45 +140,36 @@ class QueryEngine:
         finally:
             cursor.close()
 
-    def _normalize_scores(self, rows):
-        if not rows:
-            return []
-
-        scores = [row["score"] for row in rows]
-        min_score = min(scores)
-        max_score = max(scores)
-
-        if min_score == max_score:
-            return [{**row, "score": 1.0} for row in rows]
-
-        score_range = max_score - min_score
-        return [
-            {**row, "score": (row["score"] - min_score) / score_range}
-            for row in rows
-        ]
-
-    def _fuse_results(self, semantic_rows, keyword_rows, semantic_weight, keyword_weight):
+    def _fuse_ranked_results(
+        self,
+        semantic_rows,
+        keyword_rows,
+        semantic_weight,
+        keyword_weight,
+        rank_constant,
+    ):
         fused_by_id = {}
 
-        for row in semantic_rows:
+        for rank, row in enumerate(semantic_rows, start=1):
             paper_id = row["id"]
             fused_by_id[paper_id] = {
                 **row,
-                "score": semantic_weight * row["score"],
-                "source": row.get("source", "semantic"),
+                "score": semantic_weight / (rank_constant + rank),
+                "source": "semantic",
             }
 
-        for row in keyword_rows:
+        for rank, row in enumerate(keyword_rows, start=1):
             paper_id = row["id"]
+            keyword_score = keyword_weight / (rank_constant + rank)
             if paper_id in fused_by_id:
-                fused_by_id[paper_id]["score"] += keyword_weight * row["score"]
+                fused_by_id[paper_id]["score"] += keyword_score
                 fused_by_id[paper_id]["source"] = "both"
                 continue
 
             fused_by_id[paper_id] = {
                 **row,
-                "score": keyword_weight * row["score"],
-                "source": row.get("source", "keyword"),
+                "score": keyword_score,
+                "source": "keyword",
             }
 
         return sorted(
