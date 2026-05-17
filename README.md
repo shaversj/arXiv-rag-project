@@ -8,6 +8,8 @@ over arXiv papers.
 - `arxiv_rag.query_engine` for retrieval
 - `arxiv_rag.agent` for Claude-facing wrappers and tool wiring
 
+The project also uses Langfuse for observability and Claude Agent SDK tracing.
+
 The default retrieval mode is hybrid:
 - semantic retrieval from pgvector embeddings
 - keyword retrieval from PostgreSQL full-text search
@@ -96,6 +98,8 @@ docker compose up -d postgres
 # Ask a question
 uv run python -m arxiv_rag.agent.cli "What are retrieval agents?"
 ```
+
+Agent runs initialize Langfuse observability from `.env` before starting the CLI.
 
 ## Evaluate Retrieval
 

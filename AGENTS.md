@@ -12,6 +12,7 @@ This is a RAG (Retrieval-Augmented Generation) pipeline for searching arXiv pape
 - **Docker Compose** - services (PostgreSQL + app)
 - **FastAPI** - REST API server
 - **sentence-transformers** - `all-MiniLM-L6-v2` embeddings
+- **Langfuse** - observability and Claude Agent SDK tracing
 
 ## Key Files
 
@@ -41,6 +42,7 @@ This is a RAG (Retrieval-Augmented Generation) pipeline for searching arXiv pape
 - Default retrieval mode is `hybrid`
 - Hybrid retrieval combines pgvector semantic search and PostgreSQL full-text search with rank-based fusion
 - Ingest reads newline-delimited arXiv metadata from `json_file` and filters rows by `category_filter`
+- Langfuse credentials are loaded from `.env` when agent observability initializes
 
 ### Docker
 - `docker-compose up -d` starts PostgreSQL + app
@@ -95,4 +97,5 @@ If you add a new Python package:
 - No separate embedding store - embeddings stored in PostgreSQL via pgvector
 - FAISS not used - pgvector handles semantic similarity search efficiently
 - Default search behavior is hybrid fusion over semantic and keyword result lists
+- Agent observability is instrumented through Langfuse in `src/arxiv_rag/observability.py`
 - SQLite not used - PostgreSQL for data integrity and concurrent access
