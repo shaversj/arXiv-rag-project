@@ -205,6 +205,45 @@ def test_search_routes_hybrid_mode(monkeypatch, tmp_path):
     assert fuse_calls[0][2:] == (0.6, 0.4, 1)
 
 
+def test_search_routes_hybrid_mode_with_custom_rank_constant(monkeypatch, tmp_path):
+    qe = _make_blocking_search_engine(
+        tmp_path,
+        monkeypatch,
+        retrieval_mode="hybrid",
+        hybrid_candidate_pool=5,
+        hybrid_rank_constant=4,
+    )
+    fuse_calls: list[
+        tuple[list[dict[str, object]], list[dict[str, object]], float, float, int]
+    ] = []
+
+    monkeypatch.setattr(
+        qe,
+        "_search_semantic",
+        lambda query, limit: [{"id": "a", "title": "Semantic", "score": 9.0, "source": "semantic"}],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_search_keyword",
+        lambda query, limit: [{"id": "b", "title": "Keyword", "score": 3.0, "source": "keyword"}],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_fuse_ranked_results",
+        lambda semantic_rows, keyword_rows, semantic_weight, keyword_weight, rank_constant: fuse_calls.append(
+            (semantic_rows, keyword_rows, semantic_weight, keyword_weight, rank_constant)
+        )
+        or [{"id": "a", "title": "Semantic", "score": 0.0, "source": "semantic"}],
+        raising=False,
+    )
+
+    qe.search("hybrid query", limit=2)
+
+    assert fuse_calls[0][2:] == (0.7, 0.3, 4)
+
+
 def test_search_hybrid_uses_limit_when_above_candidate_pool(monkeypatch, tmp_path):
     qe = _make_blocking_search_engine(
         tmp_path,
@@ -357,6 +396,49 @@ def test_rank_fusion_ignores_raw_score_magnitude_and_uses_rank_order(tmp_path, m
     fused = qe._fuse_ranked_results(semantic_rows, keyword_rows, 0.3, 0.7, 1)
 
     assert [row["id"] for row in fused] == ["keyword_top", "semantic_top"]
+
+
+def test_rank_fusion_rejects_non_positive_rank_constant(tmp_path, monkeypatch):
+    qe = _make_initialized_engine(tmp_path, monkeypatch)
+
+    with pytest.raises(ValueError, match="hybrid_rank_constant must be greater than 0"):
+        qe._fuse_ranked_results([], [], 0.7, 0.3, 0)
+
+
+def test_search_semantic_uses_stable_secondary_sort_by_id(tmp_path, monkeypatch):
+    qe = _make_initialized_engine(tmp_path, monkeypatch)
+    captured: dict[str, object] = {}
+
+    class FakeCursor:
+        def execute(self, sql, params):
+            captured["sql"] = sql
+            captured["params"] = params
+
+        def fetchall(self):
+            return []
+
+        def close(self):
+            return None
+
+    class FakeConnection:
+        def cursor(self):
+            return FakeCursor()
+
+    class FakeStore:
+        def get_connection(self):
+            return FakeConnection()
+
+    class FakeModel:
+        def encode(self, query):
+            return np.array([1.0, 0.0], dtype=np.float32)
+
+    qe.store = FakeStore()
+    qe.model = FakeModel()
+
+    qe._search_semantic("stable ordering", 5)
+
+    sql = captured["sql"]
+    assert "ORDER BY e.embedding <=> %s::vector, p.id ASC" in sql
 
 
 def test_search_keyword_uses_full_text_expression_with_authors(tmp_path, monkeypatch):

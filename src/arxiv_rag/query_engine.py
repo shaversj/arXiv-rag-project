@@ -70,7 +70,7 @@ class QueryEngine:
                        1 - (e.embedding <=> %s::vector) as score
                 FROM papers p
                 JOIN paper_embeddings e ON p.id = e.paper_id
-                ORDER BY e.embedding <=> %s::vector
+                ORDER BY e.embedding <=> %s::vector, p.id ASC
                 LIMIT %s
                 """,
                 (json.dumps(query_list), json.dumps(query_list), limit * 2),
@@ -148,19 +148,27 @@ class QueryEngine:
         keyword_weight,
         rank_constant,
     ):
+        try:
+            validated_rank_constant = float(rank_constant)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("hybrid_rank_constant must be greater than 0") from exc
+
+        if validated_rank_constant <= 0:
+            raise ValueError("hybrid_rank_constant must be greater than 0")
+
         fused_by_id = {}
 
         for rank, row in enumerate(semantic_rows, start=1):
             paper_id = row["id"]
             fused_by_id[paper_id] = {
                 **row,
-                "score": semantic_weight / (rank_constant + rank),
+                "score": semantic_weight / (validated_rank_constant + rank),
                 "source": "semantic",
             }
 
         for rank, row in enumerate(keyword_rows, start=1):
             paper_id = row["id"]
-            keyword_score = keyword_weight / (rank_constant + rank)
+            keyword_score = keyword_weight / (validated_rank_constant + rank)
             if paper_id in fused_by_id:
                 fused_by_id[paper_id]["score"] += keyword_score
                 fused_by_id[paper_id]["source"] = "both"
