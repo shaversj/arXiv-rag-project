@@ -42,6 +42,9 @@ The ingester reads newline-delimited arXiv metadata from the file configured in
 `config.yaml`, filters by `category_filter`, embeds each paper with the configured
 sentence-transformer model, and writes both metadata and embeddings into PostgreSQL.
 
+The expected source file is the Kaggle arXiv metadata snapshot named
+`arxiv-metadata-oai-snapshot.json`.
+
 Before running ingest:
 - make sure PostgreSQL is running
 - make sure `config.yaml` points `json_file` at your local arXiv metadata snapshot

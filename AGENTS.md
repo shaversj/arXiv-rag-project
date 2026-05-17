@@ -72,6 +72,7 @@ docker-compose build app
 ## Ingest Notes
 
 - Local ingest entry point: `uv run python3 -m arxiv_rag.ingest`
+- The expected input file is the Kaggle arXiv metadata snapshot `arxiv-metadata-oai-snapshot.json`
 - The ingester expects `config.yaml` to point `json_file` at an arXiv metadata snapshot on disk
 - Only papers whose category list contains `category_filter` are embedded and stored
 - Metadata is written to `papers`, embeddings to `paper_embeddings`
